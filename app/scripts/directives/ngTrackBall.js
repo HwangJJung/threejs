@@ -21,15 +21,14 @@ angular.module('threeApp')
         var objects = [];
         var highlightBox;
         var materials= {};
+        var plane;
 
-        var rayCaster,plane;
-
-        var rollOverGeo,rollOverMaterial,rollOverMesh;
-
+        var raycaster  = new THREE.Raycaster();
+        var INTERSECTED, SELECTED,intersects;
         var contW =  element[0].clientWidth,
           contH = scope.height;
         var mouse = new THREE.Vector2();
-        var offset = new THREE.Vector3(10, 10, 10);
+        var offset = new THREE.Vector3(0, 0, 0);
 
         function init() {
 
@@ -47,6 +46,7 @@ angular.module('threeApp')
           controls.noZoom = false;
           controls.noPan = false;
           controls.staticMoving = true;
+
           controls.dynamicDampingFactor = 0.3;
 
           materials.lambert = new THREE.MeshLambertMaterial({
@@ -76,12 +76,23 @@ angular.module('threeApp')
           pickingScene = new THREE.Scene();
           pickingTexture = new THREE.WebGLRenderTarget(contW, contH);
           pickingTexture.minFilter = THREE.LinearFilter;
-          pickingTexture.generateMipmaps = false;
+          pickingTexture.texture.generateMipmaps = false;
 
           scene.add(new THREE.AmbientLight(0x555555));
 
           var light = new THREE.SpotLight(0xffffff, 1.5);
           light.position.set(0, 500, 2000);
+
+
+          light.shadowCameraNear = 200;
+          light.shadowCameraFar = camera.far;
+          light.shadowCameraFov = 50;
+
+          light.shadowBias = -0.00022;
+
+          light.shadowMapWidth = 2048;
+          light.shadowMapHeight = 2048;
+
           scene.add(light);
 
           var geometry = new THREE.Geometry(),
@@ -109,84 +120,87 @@ angular.module('threeApp')
 
           }
 
-          var geom = new THREE.BoxGeometry(1, 1, 1);
+          var p = 2;
+          var q = 3;
+          var radius = 5;
+
+
           var color = new THREE.Color();
 
           var matrix = new THREE.Matrix4();
           var quaternion = new THREE.Quaternion();
 
-          for (var i = 0; i < 5000; i++) {
+          var position = new THREE.Vector3();
+          var rotation = new THREE.Euler();
+          var scale = new THREE.Vector3();
+          (function(){
+          for (var i = 0; i < 200; i++) {
 
-            var position = new THREE.Vector3();
-            position.x = Math.random() * 10000 - 5000;
-            position.y = Math.random() * 6000 - 3000;
-            position.z = Math.random() * 8000 - 4000;
+              position.x = Math.random() * 1000 - 500;
+              position.y = Math.random() * 600 - 300;
+              position.z = Math.random() * 800 - 400;
 
-            var rotation = new THREE.Euler();
-            rotation.x = Math.random() * 2 * Math.PI;
-            rotation.y = Math.random() * 2 * Math.PI;
-            rotation.z = Math.random() * 2 * Math.PI;
+              rotation.x = Math.random() * 2 * Math.PI;
+              rotation.y = Math.random() * 2 * Math.PI;
+              rotation.z = Math.random() * 2 * Math.PI;
 
-            var scale = new THREE.Vector3();
-            scale.x = Math.random() * 200 + 100;
-            scale.y = Math.random() * 200 + 100;
-            scale.z = Math.random() * 200 + 100;
+
+              scale.x = Math.random() * 8 + 1;
+              scale.y = Math.random() * 8 + 1;
+              scale.z = Math.random() * 8 + 1;
+
+              p = ~~(Math.random() *19 +1);
+              q = ~~(Math.random() *19 +1);
+            var geom = new THREE.TorusKnotGeometry(radius, 2, 85, 7, p, q, 2);
+
+
 
             quaternion.setFromEuler(rotation, false);
-            matrix.compose(position, quaternion, scale);
+              matrix.compose(position, quaternion, scale);
 
-            // give the geom's vertices a random color, to be displayed
 
+              // give the geom's vertices a random color, to be displayed
             applyVertexColors(geom, color.setHex(Math.random() * 0xffffff));
 
-            geometry.merge(geom, matrix);
+              geometry.merge(geom, matrix);
+              //
 
-            // give the geom's vertices a color corresponding to the "id"
+              // give the geom's vertices a color corresponding to the "id"
 
-            applyVertexColors(geom, color.setHex(i));
+              applyVertexColors(geom, color.setHex(i));
+              pickingGeometry.merge(geom);
 
-            pickingGeometry.merge(geom, matrix);
-
-            pickingData[i] = {
-
-              position: position,
-              rotation: rotation,
-              scale: scale
-
-            };
-
-          }
-
+              pickingData[i] = {
+                position: position,
+                rotation: rotation,
+                scale: scale,
+                p: p,
+                q: q
+              };
+           }
+          })();
           var drawnObject = new THREE.Mesh(geometry, defaultMaterial);
-          scene.add(drawnObject);
+          drawnObject.castShadow = true;
+          drawnObject.receiveShadow = true;
+
+          scene.add( drawnObject );
+          objects.push( drawnObject );
 
           pickingScene.add(new THREE.Mesh(pickingGeometry, pickingMaterial));
 
           highlightBox = new THREE.Mesh(
-            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.TorusKnotGeometry(radius, 2, 85, 7, p, q, 2),
             new THREE.MeshLambertMaterial({color: 0xffff00}
             ));
           scene.add(highlightBox);
 
 
-          var radius = 5;
-          var segments = 32;
-          rollOverGeo = new THREE.CircleGeometry( radius, segments);
-          rollOverMaterial = new THREE.MeshBasicMaterial( { color: 0xff0000, opacity: 0.5, transparent: true } );
-          rollOverMesh = new THREE.Mesh( rollOverGeo, rollOverMaterial );
-          scene.add( rollOverMesh );
-
-
-
-          rayCaster = new THREE.Raycaster();
-
-          var geometry2 = new THREE.PlaneBufferGeometry( 1000, 1000 );
-          geometry2.rotateX( - Math.PI / 2 );
-
-          plane = new THREE.Mesh( geometry2, new THREE.MeshBasicMaterial( { visible: false } ) );
+          plane = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry( 2000, 2000, 8, 8 ),
+            new THREE.MeshBasicMaterial( { visible: false } )
+          );
           scene.add( plane );
 
-          objects.push( plane );
 
 
 
@@ -195,6 +209,10 @@ angular.module('threeApp')
           renderer.setPixelRatio(window.devicePixelRatio);
           renderer.setSize(contW, contH);
           renderer.sortObjects = false;
+
+          renderer.shadowMap.enabled = true;
+          renderer.shadowMap.type = THREE.PCFShadowMap;
+
 
           stats = new Stats();
           console.log( container.parentNode);
@@ -207,6 +225,8 @@ angular.module('threeApp')
 
 
           renderer.domElement.addEventListener('mousemove', onMouseMove);
+       //   renderer.domElement.addEventListener( 'mousedown', onDown, false );
+      //    renderer.domElement.addEventListener( 'mouseup', onMouseUp, false );
 
           window.addEventListener( 'resize', scope.onWindowResize, false );
 
@@ -218,6 +238,53 @@ angular.module('threeApp')
 
           mouse.x = e.pageX - container.offsetLeft;
           mouse.y = e.pageY - container.offsetTop;
+        }
+
+
+        function onMouseDown( e ) {
+
+          e.preventDefault();
+
+          raycaster.setFromCamera( mouse, camera );
+
+          intersects = raycaster.intersectObjects( objects );
+
+          if ( intersects.length > 0 ) {
+
+            controls.enabled = false;
+
+            SELECTED = intersects[ 0 ].object;
+
+            intersects = raycaster.intersectObject( plane );
+
+            if ( intersects.length > 0 ) {
+
+              offset.copy( intersects[ 0 ].point ).sub( plane.position );
+
+            }
+
+            container.style.cursor = 'move';
+
+          }
+
+        }
+
+        function onDocumentMouseUp( event ) {
+
+          event.preventDefault();
+
+          controls.enabled = true;
+
+          if ( INTERSECTED ) {
+
+            plane.position.copy( INTERSECTED.position );
+
+            SELECTED = null;
+
+          }
+
+          container.style.cursor = 'auto';
+
         }
 
         function animate() {
@@ -250,11 +317,15 @@ angular.module('threeApp')
 
             //move our highlightBox so that it surrounds the picked object
 
-            if (data.position && data.rotation && data.scale) {
+            if (data.position && data.rotation && data.scale &&data.p &&data.q ) {
 
               highlightBox.position.copy(data.position);
               highlightBox.rotation.copy(data.rotation);
+              highlightBox.p = data.p;
+              highlightBox.q = data.q;
+
               highlightBox.scale.copy(data.scale).add(offset);
+
               highlightBox.visible = true;
 
             }
