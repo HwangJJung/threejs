@@ -21,6 +21,7 @@ angular.module('threeApp')
         var materials= {};
         var plane;
         var cntrlIsPressed = false;
+        var light4;
 
         var lights = [];
 
@@ -94,7 +95,8 @@ angular.module('threeApp')
             pickingMaterial = new THREE.MeshBasicMaterial({vertexColors: THREE.VertexColors}),
             defaultMaterial = new THREE.MeshLambertMaterial({
               color: 0xffffff,
-              vertexColors: THREE.VertexColors
+              vertexColors: THREE.VertexColors,
+
             });
 
           var p = 2;
@@ -143,7 +145,7 @@ angular.module('threeApp')
               geom.applyMatrix(matrix);
               object = new THREE.Mesh(geom, new THREE.MeshLambertMaterial({
                 color: Math.random() * 0xffffff,
-                vertexColors: THREE.VertexColors
+                vertexColors: THREE.VertexColors,
               }));
 
               object.castShadow = true;
@@ -208,22 +210,22 @@ angular.module('threeApp')
 
             if ( intersects.length > 0 ) {
 
-              intersects = raycaster.intersectObject( plane );
-
-              if (intersects.length > 0 ) {
-              intersects[0].point.sub( plane.position );
-              }
-
               var po = origin.position;
               intersects = raycaster.intersectObjects( objects );
 
-              var light1 = new THREE.PointLight( intersects[0].object.material.color.getHex(), 20, 0 );
-              light1.add( new THREE.Mesh( intersects[0].object.geometry, new THREE.MeshLambertMaterial( { color: intersects[0].object.material.color.getHex() } ) ) );
+              var temp = new THREE.Mesh( intersects[0].object.geometry, new THREE.MeshLambertMaterial(
+                {
+                  color: intersects[0].object.material.color.getHex()
+                } ) );
 
+              var light1 = new THREE.PointLight( intersects[0].object.material.color.getHex(), 20, 0 );
+
+              light1.add(temp);
               light1.position.copy( po );
-              light1.lookAt(camera.position );
               scene.add(light1);
               lights.push(light1);
+
+
             }
 
           }
@@ -352,7 +354,7 @@ angular.module('threeApp')
             var sphere = new THREE.SphereGeometry( 0.5, 16, 8 );
 
             var light1 = new THREE.PointLight( 0xff0040, 2, 50 );
-            light1.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: SELECTED.material.color.getHex() } ) ) );
+           // light1.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: SELECTED.material.color.getHex() } ) ) );
             scene.add( light1 );
             lights.push(light1);
           }
@@ -390,6 +392,12 @@ angular.module('threeApp')
         function render() {
 
           controls.update();
+          //var time = Date.now() * 0.0005;
+          //
+          //light4.position.x = Math.sin( time * 0.3 ) * 30;
+          //light4.position.y = Math.cos( time * 0.7 ) * 40;
+          //light4.position.z = Math.sin( time * 0.5 ) * 30;
+          //
 
 
           renderer.render(scene, camera);
