@@ -73,21 +73,21 @@ angular.module('threeApp')
 
 
           scene.add(new THREE.AmbientLight(0x444444));
-          //
-          //var light = new THREE.SpotLight(0xffffff, 1.5);
-          //light.position.set(0, 500, 2000);
-          //light.castShadow = true;
-          //
-          //light.shadowCameraNear = 200;
-          //light.shadowCameraFar = camera.far;
-          //light.shadowCameraFov = 50;
-          //
-          //light.shadowBias = -0.00022;
-          //
-          //light.shadowMapWidth = 2048;
-          //light.shadowMapHeight = 2048;
-          //
-          //scene.add(light);
+
+          var light = new THREE.SpotLight(0xffffff, 1.0);
+          light.position.set(0, 500, 2000);
+          light.castShadow = true;
+
+          light.shadowCameraNear = 200;
+          light.shadowCameraFar = camera.far;
+          light.shadowCameraFov = 50;
+
+          light.shadowBias = -0.00022;
+
+          light.shadowMapWidth = 2048;
+          light.shadowMapHeight = 2048;
+
+          scene.add(light);
 
           var geometry = new THREE.Geometry(),
             pickingGeometry = new THREE.Geometry(),
@@ -219,7 +219,6 @@ angular.module('threeApp')
 
               var light1 = new THREE.PointLight( intersects[0].object.material.color.getHex(), 20, 0 );
               light1.add( new THREE.Mesh( intersects[0].object.geometry, new THREE.MeshLambertMaterial( { color: intersects[0].object.material.color.getHex() } ) ) );
-              //light1.position = po;
 
               light1.position.copy( po );
               light1.lookAt(camera.position );
