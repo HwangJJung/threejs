@@ -5,8 +5,6 @@
  * @author Luca Antiga 	/ http://lantiga.github.io
  */
 
-'use strict';
-
 THREE.TrackballControls = function ( object, domElement ) {
 
 	var _this = this;
@@ -81,7 +79,9 @@ THREE.TrackballControls = function ( object, domElement ) {
 	// methods
 
 	this.handleResize = function () {
+
 		if ( this.domElement === document ) {
+
 			this.screen.left = 0;
 			this.screen.top = 0;
 			this.screen.width = window.innerWidth;
@@ -103,7 +103,7 @@ THREE.TrackballControls = function ( object, domElement ) {
 
 	this.handleEvent = function ( event ) {
 
-		if ( typeof this[ event.type ] === 'function' ) {
+		if ( typeof this[ event.type ] == 'function' ) {
 
 			this[ event.type ]( event );
 
@@ -609,7 +609,7 @@ THREE.TrackballControls = function ( object, domElement ) {
 		window.removeEventListener( 'keydown', keydown, false );
 		window.removeEventListener( 'keyup', keyup, false );
 
-	};
+	}
 
 	this.domElement.addEventListener( 'contextmenu', contextmenu, false );
 	this.domElement.addEventListener( 'mousedown', mousedown, false );

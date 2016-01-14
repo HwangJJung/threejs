@@ -17,13 +17,14 @@ angular.module('threeApp')
       link: function(scope, element, attrs) {
         var container, stats;
         var camera, controls, scene, renderer;
-        var pickingData = [], pickingTexture, pickingScene;
         var objects = [];
-        var highlightBox;
         var materials= {};
         var plane;
+        var cntrlIsPressed = false;
 
-        var raycaster  = new THREE.Raycaster();
+        var lights = [];
+
+        var raycaster;
         var INTERSECTED, SELECTED,intersects;
         var contW =  element[0].clientWidth,
           contH = scope.height;
@@ -46,17 +47,14 @@ angular.module('threeApp')
           controls.noZoom = false;
           controls.noPan = false;
           controls.staticMoving = true;
-
           controls.dynamicDampingFactor = 0.3;
 
           materials.lambert = new THREE.MeshLambertMaterial({
             color: 0xffffff,
-            shading: THREE.FlatShading,
             vertexColors: THREE.VertexColors
           });
 
           materials.phong = new THREE.MeshPhongMaterial({
-            ambient: 0x030303,
             color: 0xdddddd,
             specular: 0x009900,
             shininess: 30,
@@ -73,52 +71,31 @@ angular.module('threeApp')
 
           scene = new THREE.Scene();
 
-          pickingScene = new THREE.Scene();
-          pickingTexture = new THREE.WebGLRenderTarget(contW, contH);
-          pickingTexture.minFilter = THREE.LinearFilter;
-          pickingTexture.texture.generateMipmaps = false;
 
-          scene.add(new THREE.AmbientLight(0x555555));
-
-          var light = new THREE.SpotLight(0xffffff, 1.5);
-          light.position.set(0, 500, 2000);
-
-
-          light.shadowCameraNear = 200;
-          light.shadowCameraFar = camera.far;
-          light.shadowCameraFov = 50;
-
-          light.shadowBias = -0.00022;
-
-          light.shadowMapWidth = 2048;
-          light.shadowMapHeight = 2048;
-
-          scene.add(light);
+          scene.add(new THREE.AmbientLight(0x444444));
+          //
+          //var light = new THREE.SpotLight(0xffffff, 1.5);
+          //light.position.set(0, 500, 2000);
+          //light.castShadow = true;
+          //
+          //light.shadowCameraNear = 200;
+          //light.shadowCameraFar = camera.far;
+          //light.shadowCameraFov = 50;
+          //
+          //light.shadowBias = -0.00022;
+          //
+          //light.shadowMapWidth = 2048;
+          //light.shadowMapHeight = 2048;
+          //
+          //scene.add(light);
 
           var geometry = new THREE.Geometry(),
             pickingGeometry = new THREE.Geometry(),
             pickingMaterial = new THREE.MeshBasicMaterial({vertexColors: THREE.VertexColors}),
             defaultMaterial = new THREE.MeshLambertMaterial({
               color: 0xffffff,
-              shading: THREE.FlatShading,
               vertexColors: THREE.VertexColors
             });
-
-          function applyVertexColors(g, c) {
-
-            g.faces.forEach(function (f) {
-
-              var n = ( f instanceof THREE.Face3 ) ? 3 : 4;
-
-              for (var j = 0; j < n; j++) {
-
-                f.vertexColors[j] = c;
-
-              }
-
-            });
-
-          }
 
           var p = 2;
           var q = 3;
@@ -133,6 +110,8 @@ angular.module('threeApp')
           var position = new THREE.Vector3();
           var rotation = new THREE.Euler();
           var scale = new THREE.Vector3();
+          var geom,object;
+
           (function(){
           for (var i = 0; i < 200; i++) {
 
@@ -151,49 +130,30 @@ angular.module('threeApp')
 
               p = ~~(Math.random() *19 +1);
               q = ~~(Math.random() *19 +1);
-            var geom = new THREE.TorusKnotGeometry(radius, 2, 85, 7, p, q, 2);
 
+            geom = new THREE.TorusKnotGeometry(radius, 2, 85, 7, p, q, 2);
 
-
-            quaternion.setFromEuler(rotation, false);
+             quaternion.setFromEuler(rotation, false);
               matrix.compose(position, quaternion, scale);
 
 
               // give the geom's vertices a random color, to be displayed
-            applyVertexColors(geom, color.setHex(Math.random() * 0xffffff));
+             // applyVertexColors(geom, color.setHex(Math.random() * 0xffffff));
 
-              geometry.merge(geom, matrix);
-              //
+              geom.applyMatrix(matrix);
+              object = new THREE.Mesh(geom, new THREE.MeshLambertMaterial({
+                color: Math.random() * 0xffffff,
+                vertexColors: THREE.VertexColors
+              }));
 
-              // give the geom's vertices a color corresponding to the "id"
+              object.castShadow = true;
+              object.receiveShadow = true;
 
-              applyVertexColors(geom, color.setHex(i));
-              pickingGeometry.merge(geom);
 
-              pickingData[i] = {
-                position: position,
-                rotation: rotation,
-                scale: scale,
-                p: p,
-                q: q
-              };
+              scene.add( object );
+              objects.push( object );
            }
           })();
-          var drawnObject = new THREE.Mesh(geometry, defaultMaterial);
-          drawnObject.castShadow = true;
-          drawnObject.receiveShadow = true;
-
-          scene.add( drawnObject );
-          objects.push( drawnObject );
-
-          pickingScene.add(new THREE.Mesh(pickingGeometry, pickingMaterial));
-
-          highlightBox = new THREE.Mesh(
-            new THREE.TorusKnotGeometry(radius, 2, 85, 7, p, q, 2),
-            new THREE.MeshLambertMaterial({color: 0xffff00}
-            ));
-          scene.add(highlightBox);
-
 
           plane = new THREE.Mesh(
             new THREE.PlaneBufferGeometry( 2000, 2000, 8, 8 ),
@@ -203,9 +163,10 @@ angular.module('threeApp')
 
 
 
+          raycaster  = new THREE.Raycaster();
 
           renderer = new THREE.WebGLRenderer({antialias: true});
-          renderer.setClearColor(0xffffff);
+          renderer.setClearColor(0xf0f0f0);
           renderer.setPixelRatio(window.devicePixelRatio);
           renderer.setSize(contW, contH);
           renderer.sortObjects = false;
@@ -215,7 +176,7 @@ angular.module('threeApp')
 
 
           stats = new Stats();
-          console.log( container.parentNode);
+
           stats.domElement.style.zIndex = 11;
           stats.domElement.style.position = 'absolute';
 
@@ -223,21 +184,113 @@ angular.module('threeApp')
           container.appendChild(stats.domElement);
           container.appendChild(renderer.domElement);
 
+          renderer.domElement.addEventListener('mousemove', onMouseMove2, false);
+          renderer.domElement.addEventListener( 'mousedown', onMouseDown, false );
+          renderer.domElement.addEventListener( 'mouseup', onMouseUp, false );
+          renderer.domElement.addEventListener( 'click', selectMe, false );
 
-          renderer.domElement.addEventListener('mousemove', onMouseMove);
-       //   renderer.domElement.addEventListener( 'mousedown', onDown, false );
-      //    renderer.domElement.addEventListener( 'mouseup', onMouseUp, false );
+
+
 
           window.addEventListener( 'resize', scope.onWindowResize, false );
-
         }
 
         //
 
-        function onMouseMove(e) {
+        function selectMe(event)
+        {
+          if(event.altKey) {
+            event.preventDefault();
 
-          mouse.x = e.pageX - container.offsetLeft;
-          mouse.y = e.pageY - container.offsetTop;
+            raycaster.setFromCamera( mouse, camera );
+            intersects = raycaster.intersectObjects( objects );
+            var origin = intersects[0].object;
+
+            if ( intersects.length > 0 ) {
+
+              intersects = raycaster.intersectObject( plane );
+
+              if (intersects.length > 0 ) {
+              intersects[0].point.sub( plane.position );
+              }
+
+              var po = origin.position;
+              intersects = raycaster.intersectObjects( objects );
+
+              var light1 = new THREE.PointLight( intersects[0].object.material.color.getHex(), 20, 0 );
+              light1.add( new THREE.Mesh( intersects[0].object.geometry, new THREE.MeshLambertMaterial( { color: intersects[0].object.material.color.getHex() } ) ) );
+              //light1.position = po;
+
+              light1.position.copy( po );
+              light1.lookAt(camera.position );
+              scene.add(light1);
+              lights.push(light1);
+            }
+
+          }
+        }
+
+        function onMouseMove2(e) {
+
+          e.preventDefault();
+          var de = (event.pageX - container.offsetLeft) ;
+          var fa = (event.pageY - container.offsetTop) ;
+          mouse.x = ( de/ contW) * 2 - 1;
+          mouse.y = - (fa/ contH) * 2 + 1 ;
+
+
+          raycaster.setFromCamera( mouse, camera );
+
+          // 옮기는 도중
+          if ( SELECTED ) {
+            intersects = raycaster.intersectObject( plane );
+
+            //뭔가 잡혔다
+            if ( intersects.length > 0 ) {
+
+
+              SELECTED.position.copy( intersects[ 0 ].point.sub( offset ) );
+            }
+          }
+          else {
+            // 옭기는 중이 아니면
+            intersects = raycaster.intersectObjects( objects );
+
+
+
+            if ( intersects.length > 0 ) {
+
+
+              if ( INTERSECTED !== intersects[0].object ) {
+
+                if ( INTERSECTED ) {
+
+                  INTERSECTED.material.color.setHex( INTERSECTED.currentHex );
+                }
+                // 일단 가장 가까운거로 초기화
+                INTERSECTED = intersects[ 0 ].object;
+                INTERSECTED.currentHex = {};
+                INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
+
+                //플레인에 포지션 카피
+                plane.position.copy( INTERSECTED.position );
+                plane.lookAt( camera.position );
+              }
+
+              container.style.cursor = 'pointer';
+            } else {
+
+              if ( INTERSECTED ) {
+                INTERSECTED.material.color.setHex( INTERSECTED.currentHex );
+              }
+
+              INTERSECTED = null;
+              container.style.cursor = 'auto';
+
+            }
+          }
+
+
         }
 
 
@@ -246,32 +299,26 @@ angular.module('threeApp')
           e.preventDefault();
 
           raycaster.setFromCamera( mouse, camera );
-
           intersects = raycaster.intersectObjects( objects );
 
           if ( intersects.length > 0 ) {
 
             controls.enabled = false;
-
             SELECTED = intersects[ 0 ].object;
 
             intersects = raycaster.intersectObject( plane );
-
-            if ( intersects.length > 0 ) {
-
+            if (intersects.length > 0 ) {
               offset.copy( intersects[ 0 ].point ).sub( plane.position );
-
             }
 
             container.style.cursor = 'move';
-
           }
 
         }
 
-        function onDocumentMouseUp( event ) {
+        function onMouseUp( e ) {
 
-          event.preventDefault();
+          e.preventDefault();
 
           controls.enabled = true;
 
@@ -287,6 +334,50 @@ angular.module('threeApp')
 
         }
 
+
+        function onMousedoubleClick(e) {
+
+          e.preventDefault();
+
+
+          raycaster.setFromCamera( mouse, camera );
+          intersects = raycaster.intersectObjects( objects );
+
+          if ( intersects.length > 0 ) {
+
+
+            SELECTED = intersects[ 0 ].object;
+
+            console.log('AHAHAH');
+
+            var sphere = new THREE.SphereGeometry( 0.5, 16, 8 );
+
+            var light1 = new THREE.PointLight( 0xff0040, 2, 50 );
+            light1.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: SELECTED.material.color.getHex() } ) ) );
+            scene.add( light1 );
+            lights.push(light1);
+          }
+
+          //var sphere = new THREE.SphereGeometry( 0.5, 16, 8 );
+          //
+          //var light1 = new THREE.PointLight( 0xff0040, 2, 50 );
+          //light1.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0xff0040 } ) ) );
+          //scene.add( light1 );
+          //
+          //var light2 = new THREE.PointLight( 0x0040ff, 2, 50 );
+          //light2.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0x0040ff } ) ) );
+          //scene.add( light2 );
+          //
+          //var light3 = new THREE.PointLight( 0x80ff80, 2, 50 );
+          //light3.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0x80ff80 } ) ) );
+          //scene.add( light3 );
+          //
+          //var light4 = new THREE.PointLight( 0xffaa00, 2, 50 );
+          //light4.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0xffaa00 } ) ) );
+          //scene.add( light4 );
+
+        }
+
         function animate() {
 
           requestAnimationFrame(scope.animate);
@@ -296,53 +387,11 @@ angular.module('threeApp')
 
         }
 
-        function pick() {
-
-          //render the picking scene off-screen
-
-          renderer.render(pickingScene, camera, pickingTexture);
-
-          //create buffer for reading single pixel
-          var pixelBuffer = new Uint8Array(4);
-
-          //read the pixel under the mouse from the texture
-          renderer.readRenderTargetPixels(pickingTexture, mouse.x, pickingTexture.height - mouse.y, 1, 1, pixelBuffer);
-
-          //interpret the pixel as an ID
-
-          var id = ( pixelBuffer[0] << 16 ) | ( pixelBuffer[1] << 8 ) | ( pixelBuffer[2] );
-          var data = pickingData[id];
-
-          if (data) {
-
-            //move our highlightBox so that it surrounds the picked object
-
-            if (data.position && data.rotation && data.scale &&data.p &&data.q ) {
-
-              highlightBox.position.copy(data.position);
-              highlightBox.rotation.copy(data.rotation);
-              highlightBox.p = data.p;
-              highlightBox.q = data.q;
-
-              highlightBox.scale.copy(data.scale).add(offset);
-
-              highlightBox.visible = true;
-
-            }
-
-          } else {
-
-            highlightBox.visible = false;
-
-          }
-
-        }
 
         function render() {
 
           controls.update();
 
-          pick();
 
           renderer.render(scene, camera);
 
